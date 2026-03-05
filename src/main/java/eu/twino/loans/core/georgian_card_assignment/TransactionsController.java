@@ -70,7 +70,7 @@ public class TransactionsController {
     });
 
     @EventListener(ApplicationReadyEvent.class)
-    public void doSomethingAfterStartup() {
+    public void startBackgroundThread() {
         backgroundStatisticsCleaningThread.start();
     }
 
