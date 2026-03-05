@@ -15,7 +15,6 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-@RestController
 /**
  * ტესტებს ვეღარ ვასწრებ, შეიძლება რაღაცეებმა არ იმუშაუს, მარა ლოგიკა მგონი გასაგებია :)
  *
@@ -24,8 +23,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * თუ გვინდა ბოლო 60 წამის სტატისტიკის აღებას, ვიღებთ მერჩანთისთვის ბოლო ჩანაწერს, რომელიც დაემატა ბოლო 60 წამის განმავლობაში
  * თუ რეინჯით ვიღებთ, უბრალოდ ვფილტრავთ და ასევე ბოლო ჩანაწერს ვიღებთ
  *
- * თუ რომელიმე
+ * თუ რომელიმე მერჩანთისთვის სტატისტიკის ჩანაწერების რაოდენობა 10ზე მეტია, იღვიძებს ტრედი რომელიც წინა ჩანაწერებს შლის და მარტო 1ს ტოვებს,
+ * ყველაზე ბოლო რომელიცაა დამატებული
  */
+@RestController
 public class TransactionsController {
 
     private static final int STATISTICS_THRESHOLD = 10;
