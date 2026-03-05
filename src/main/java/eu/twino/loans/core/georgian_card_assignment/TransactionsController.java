@@ -9,7 +9,6 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.locks.Condition;
@@ -17,15 +16,23 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @RestController
-// ტესტებს ვეღარ ვასწრებ, შეიძლება რაღაცეებმა არ იმუშაუს, მარა ლოგიკა მგონი გასაგებია :)
+/**
+ * ტესტებს ვეღარ ვასწრებ, შეიძლება რაღაცეებმა არ იმუშაუს, მარა ლოგიკა მგონი გასაგებია :)
+ *
+ * პროგრამა აგგრეგაციას აკეთებს ყოველი ტრანბზაქციის მერე, კონკრეტული მერჩანთისთვის.
+ * გამოდის რომ ყველა მერჩანთს აქვს სტატისტიკის რამდენიმე ჩანაწერი თაიმსტემპით, თუ როდის იყო შექმნილი
+ * თუ გვინდა ბოლო 60 წამის სტატისტიკის აღებას, ვიღებთ მერჩანთისთვის ბოლო ჩანაწერს, რომელიც დაემატა ბოლო 60 წამის განმავლობაში
+ * თუ რეინჯით ვიღებთ, უბრალოდ ვფილტრავთ და ასევე ბოლო ჩანაწერს ვიღებთ
+ *
+ */
 public class TransactionsController {
 
     private static final int STATISTICS_THRESHOLD = 10;
 
     private final List<TransactionData> savedTransactions = new ArrayList<>();
-    private final Map<String, List<MerchantStatistics>> merchantsStatistics = new ConcurrentHashMap<>();
+    private final Map<String, List<MerchantStatistics>> merchantsStatistics = new HashMap<>();
 
-    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final Condition merchantsStatisticsFull = lock.writeLock().newCondition();
 
@@ -77,10 +84,8 @@ public class TransactionsController {
             savedTransactions.add(transactionData);
         }
 
-        // ვააფდეითებთ სტატისტიკას ასინქრონულად
-        executor.submit(() -> {
-            updateStatistics(transactionData);
-        });
+        // ვააფდეითებთ სტატისტიკას ასინქრონულად. სინქრონულადაც შეიძლება, მაგრამ ვების ტრედს მოუწევდა დალოდებოდა სტატისტიკის განახლებას.
+        executor.submit(() -> updateStatistics(transactionData));
     }
 
     @GetMapping("/stats")
@@ -105,7 +110,7 @@ public class TransactionsController {
             @RequestParam("from") Instant from,
             @RequestParam("to") Instant to
     ) {
-        // აქ გვინდა რიდ ლოქი, რომ არ ველოდოთ სტატისტიკის განახლების ტასკს და გვქონდეს ბოლო განახლების რეზულტატი
+        // აქ გვინდა რიდ ლოქი, რომ არ ველოდოთ სტატისტიკის განახლების ტასკს და გვქონდეს ბოლო განახლების რეზულტატი.
         var readLock = lock.readLock();
         try {
             return merchantsStatistics.get(merchantId)
