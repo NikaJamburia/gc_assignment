@@ -32,7 +32,7 @@ public class TransactionsController {
     private static final int STATISTICS_THRESHOLD = 10;
 
     private final List<TransactionData> savedTransactions = new ArrayList<>();
-    private final Map<String, List<MerchantStatistics>> merchantsStatistics = new HashMap<>();
+    private final Map<String, Set<MerchantStatistics>> merchantsStatistics = new HashMap<>();
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
@@ -60,7 +60,9 @@ public class TransactionsController {
                         var latestStat = value.stream()
                                 .max(Comparator.comparing(MerchantStatistics::timestamp))
                                 .orElseThrow();
-                        merchantsStatistics.put(key, List.of(latestStat));
+                        var newSet = new HashSet<MerchantStatistics>();
+                        newSet.add(latestStat);
+                        merchantsStatistics.put(key, newSet);
                     }
                 });
             } finally {
@@ -76,11 +78,6 @@ public class TransactionsController {
 
     @PostMapping("/transactions")
     void insertTransaction(@RequestBody TransactionData transactionData) {
-        if (savedTransactions.stream().anyMatch(tx ->
-                Objects.equals(tx.transactionId(), transactionData.transactionId()))) {
-            return;
-        }
-
         if (Duration.between(transactionData.timestamp(), Instant.now()).getSeconds() > 60) {
             throw new IllegalStateException("Transaction too old");
         }
@@ -104,7 +101,7 @@ public class TransactionsController {
                     .stream()
                     .filter(stat -> stat.timestamp().isAfter(Instant.now().minusSeconds(60)))
                     .max(Comparator.comparing(MerchantStatistics::timestamp))
-                    .orElseThrow(() ->new IllegalArgumentException("No statistics for merchant"));
+                    .orElseThrow(() -> new IllegalArgumentException("No statistics for merchant"));
         } finally {
             readLock.unlock();
         }
@@ -151,7 +148,7 @@ public class TransactionsController {
                         transactionData.amount(),
                         transactionData.timestamp()
                 );
-                ArrayList<MerchantStatistics> value = new ArrayList<>();
+                Set<MerchantStatistics> value = new HashSet<>();
                 value.add(newStat);
                 merchantsStatistics.put(transactionData.merchantId(), value);
             } else {
