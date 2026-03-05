@@ -98,6 +98,7 @@ public class TransactionsController {
     MerchantStatistics getStats(@RequestParam("merchantId") String merchantId) {
         // აქ გვინდა რიდ ლოქი, რომ არ ველოდოთ სტატისტიკის განახლების ტასკს და გვქონდეს ბოლო განახლების რეზულტატი
         var readLock = lock.readLock();
+        readLock.lock();
         try {
             return merchantsStatistics.get(merchantId)
                     .stream()
@@ -118,6 +119,7 @@ public class TransactionsController {
     ) {
         // აქ გვინდა რიდ ლოქი, რომ არ ველოდოთ სტატისტიკის განახლების ტასკს და გვქონდეს ბოლო განახლების რეზულტატი.
         var readLock = lock.readLock();
+        readLock.lock();
         try {
             return merchantsStatistics.get(merchantId)
                     .stream()
@@ -149,7 +151,9 @@ public class TransactionsController {
                         transactionData.amount(),
                         transactionData.timestamp()
                 );
-                merchantsStatistics.put(transactionData.merchantId(), List.of(newStat));
+                ArrayList<MerchantStatistics> value = new ArrayList<>();
+                value.add(newStat);
+                merchantsStatistics.put(transactionData.merchantId(), value);
             } else {
                 var lastRecord = stats
                         .stream()
