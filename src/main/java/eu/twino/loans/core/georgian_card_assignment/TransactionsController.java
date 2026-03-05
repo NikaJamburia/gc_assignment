@@ -71,28 +71,34 @@ public class TransactionsController {
     }
 
     @GetMapping("/stats")
-    MerchantStatistics getStats(@RequestParam("merchantId") String merchantId) {
-        return merchantsStatistics.get(merchantId)
-                .stream()
-                .filter(stat -> stat.timestamp().isAfter(Instant.now().minusSeconds(60)))
-                .max(Comparator.comparing(MerchantStatistics::timestamp))
-                .orElseThrow(() -> new IllegalArgumentException("No statistics for merchant"));
-
+    MerchantStatisticsResponse getStats(@RequestParam("merchantId") String merchantId) {
+        return getMerchantStatisticsResponse(merchantId, Instant.now().minusSeconds(60), Instant.now());
     }
 
     @GetMapping("/stats/range")
-    MerchantStatistics getStatsRanged(
+    MerchantStatisticsResponse getStatsRanged(
             @RequestParam("merchantId") String merchantId,
             @RequestParam("from") Instant from,
             @RequestParam("to") Instant to
     ) {
+        return getMerchantStatisticsResponse(merchantId, from, to);
+    }
+
+    private MerchantStatisticsResponse getMerchantStatisticsResponse(String merchantId, Instant from, Instant to) {
         return merchantsStatistics.get(merchantId)
                 .stream()
                 .filter(stat ->
                         stat.timestamp().isAfter(from) && stat.timestamp().isBefore(to)
                 )
                 .max(Comparator.comparing(MerchantStatistics::timestamp))
-                .orElseThrow(() ->new IllegalArgumentException("No statistics for merchant"));
+                .map(stat -> new MerchantStatisticsResponse(
+                        stat.totalAmount(),
+                        stat.transactionsCount(),
+                        stat.minAmount(),
+                        stat.maxAmount(),
+                        stat.avgAmount()
+                ))
+                .orElseThrow(() -> new IllegalArgumentException("No statistics for merchant"));
     }
 
     private void updateStatistics(TransactionData transactionData) {
