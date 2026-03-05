@@ -22,14 +22,14 @@ import java.util.stream.Collectors;
  * თუ გვინდა ბოლო 60 წამის სტატისტიკის აღებას, ვიღებთ მერჩანთისთვის ბოლო ჩანაწერს, რომელიც დაემატა ბოლო 60 წამის განმავლობაში
  * თუ რეინჯით ვიღებთ, უბრალოდ ვფილტრავთ და ასევე ბოლო ჩანაწერს ვიღებთ
  *
- * ყოველ 5 წუთში ვშლით ტრანზაქციებს, რომელიც 5 წუთზე ძველია
+ * ყოველ 5 წუთში ვშლით ტრანზაქციებს, რომელიც 5 წუთზე ძველია.
  */
 @RestController
 public class TransactionsController {
 
     private final Map<String, Set<MerchantStatistics>> merchantsStatistics = new ConcurrentHashMap<>();
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     private final Lock lock = new ReentrantLock();
@@ -110,6 +110,9 @@ public class TransactionsController {
         }
 
         merchantsStatistics.computeIfPresent(transactionData.merchantId(),( key, value) -> {
+            if (value.stream().map(MerchantStatistics::lastTransactionId).toList().contains(transactionData.merchantId())) {
+                return value;
+            }
             var lastRecord = value
                     .stream()
                     .max(Comparator.comparing(MerchantStatistics::timestamp))
@@ -123,7 +126,8 @@ public class TransactionsController {
                     transactionData.amount().min(lastRecord.minAmount()),
                     transactionData.amount().max(lastRecord.maxAmount()),
                     newTotal.divide(new BigDecimal(newCount), RoundingMode.HALF_DOWN),
-                    transactionData.timestamp()
+                    transactionData.timestamp(),
+                    transactionData.transactionId()
             );
             value.add(newStat);
             return value;
@@ -136,7 +140,8 @@ public class TransactionsController {
                     transactionData.amount(),
                     transactionData.amount(),
                     transactionData.amount(),
-                    transactionData.timestamp()
+                    transactionData.timestamp(),
+                    transactionData.transactionId()
             );
             Set<MerchantStatistics> value = new HashSet<>();
             value.add(newStat);
