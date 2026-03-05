@@ -109,20 +109,6 @@ public class TransactionsController {
             lock.unlock();
         }
 
-        merchantsStatistics.computeIfAbsent(transactionData.merchantId(), (key) -> {
-            var newStat = new MerchantStatistics(
-                    transactionData.amount(),
-                    1,
-                    transactionData.amount(),
-                    transactionData.amount(),
-                    transactionData.amount(),
-                    transactionData.timestamp()
-            );
-            Set<MerchantStatistics> value = new HashSet<>();
-            value.add(newStat);
-            return value;
-        });
-
         merchantsStatistics.computeIfPresent(transactionData.merchantId(),( key, value) -> {
             var lastRecord = value
                     .stream()
@@ -139,6 +125,20 @@ public class TransactionsController {
                     newTotal.divide(new BigDecimal(newCount), RoundingMode.HALF_DOWN),
                     transactionData.timestamp()
             );
+            value.add(newStat);
+            return value;
+        });
+
+        merchantsStatistics.computeIfAbsent(transactionData.merchantId(), (key) -> {
+            var newStat = new MerchantStatistics(
+                    transactionData.amount(),
+                    1,
+                    transactionData.amount(),
+                    transactionData.amount(),
+                    transactionData.amount(),
+                    transactionData.timestamp()
+            );
+            Set<MerchantStatistics> value = new HashSet<>();
             value.add(newStat);
             return value;
         });
