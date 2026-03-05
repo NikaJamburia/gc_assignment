@@ -1,5 +1,7 @@
 package eu.twino.loans.core.georgian_card_assignment;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -15,6 +17,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @RestController
+// ტესტებს ვეღარ ვასწრებ, შეიძლება რაღაცეებმა არ იმუშაუს, მარა ლოგიკა მგონი გასაგებია :)
 public class TransactionsController {
 
     private static final int STATISTICS_THRESHOLD = 10;
@@ -22,13 +25,14 @@ public class TransactionsController {
     private final List<TransactionData> savedTransactions = new ArrayList<>();
     private final Map<String, List<MerchantStatistics>> merchantsStatistics = new ConcurrentHashMap<>();
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private final Condition merchantsStatisticsFull = lock.writeLock().newCondition();
 
     private final Thread backgroundStatisticsCleaningThread = new Thread(() -> {
         while (true) {
             try {
+                // იცდის სანამ რომელიმე მერჩანთის სტატისტიკა 10ზე მეტი იქნება
                 merchantsStatisticsFull.await();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -37,6 +41,7 @@ public class TransactionsController {
             var writeLock = lock.writeLock();
             writeLock.lock();
             try {
+                // ყველა მერჩანთს, რომლის სტატისტიკის რექორდები 10ზე მეტია, უშლის წინებს და ტოვებს მარტო ბოლოს
                 merchantsStatistics.forEach((key, value) -> {
                     if (value.size() > STATISTICS_THRESHOLD) {
                         var latestStat = value.stream()
@@ -51,6 +56,11 @@ public class TransactionsController {
         }
     });
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void doSomethingAfterStartup() {
+        backgroundStatisticsCleaningThread.start();
+    }
+
     @PostMapping("/transactions")
     void insertTransaction(@RequestBody TransactionData transactionData) {
         if (savedTransactions.stream().anyMatch(tx ->
@@ -63,9 +73,11 @@ public class TransactionsController {
         }
 
         synchronized (this) {
+            // ეს რეალურად არაა საჭირო :) თავიდან მქონდა ეს ლისტი როცა ჯერ ვერ ჩამოვყალიბდი სოლუშენზე
             savedTransactions.add(transactionData);
         }
 
+        // ვააფდეითებთ სტატისტიკას ასინქრონულად
         executor.submit(() -> {
             updateStatistics(transactionData);
         });
@@ -73,6 +85,7 @@ public class TransactionsController {
 
     @GetMapping("/stats")
     MerchantStatistics getStats(@RequestParam("merchantId") String merchantId) {
+        // აქ გვინდა რიდ ლოქი, რომ არ ველოდოთ სტატისტიკის განახლების ტასკს და გვქონდეს ბოლო განახლების რეზულტატი
         var readLock = lock.readLock();
         try {
             return merchantsStatistics.get(merchantId)
@@ -92,6 +105,7 @@ public class TransactionsController {
             @RequestParam("from") Instant from,
             @RequestParam("to") Instant to
     ) {
+        // აქ გვინდა რიდ ლოქი, რომ არ ველოდოთ სტატისტიკის განახლების ტასკს და გვქონდეს ბოლო განახლების რეზულტატი
         var readLock = lock.readLock();
         try {
             return merchantsStatistics.get(merchantId)
@@ -107,6 +121,7 @@ public class TransactionsController {
     }
 
     private void updateStatistics(TransactionData transactionData) {
+        // ვიღებთ ლოკს
         var writeLock = lock.writeLock();
         writeLock.lock();
 
@@ -141,6 +156,7 @@ public class TransactionsController {
                 );
                 stats.add(newStat);
                 if (stats.size() > STATISTICS_THRESHOLD) {
+                    // თუ ძაან ბევრი სტატისტიკა დაგროვდა მერჩანტზე, სიგნალს ვუგზავნით ბექრაუნდ ტრედს, რომელიც წაშლის
                     merchantsStatisticsFull.signal();
                 }
             }
