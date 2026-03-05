@@ -132,7 +132,8 @@ public class TransactionsController {
     }
 
     private void updateStatistics(TransactionData transactionData) {
-        // ვიღებთ ლოკს
+        // ვიღებთ ლოკს. უფრო ეფექტური რომ იყოს, შეიძლება ამის გაშვება თრედ პულში და არა 1 ტრედზე, და თითო მერჩანტისთვის
+        // ცალკე ლოქის ქონა. მაგ შემთხვევაში, 2 თრედს შეეძლებოდა სხვადასხვა მერჩანთების სტატისტიკის განახლება დალოდების გარეშე
         var writeLock = lock.writeLock();
         writeLock.lock();
 
