@@ -31,7 +31,6 @@ public class TransactionsController {
 
     private static final int STATISTICS_THRESHOLD = 10;
 
-    private final List<TransactionData> savedTransactions = new ArrayList<>();
     private final Map<String, Set<MerchantStatistics>> merchantsStatistics = new HashMap<>();
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -80,11 +79,6 @@ public class TransactionsController {
     void insertTransaction(@RequestBody TransactionData transactionData) {
         if (Duration.between(transactionData.timestamp(), Instant.now()).getSeconds() > 60) {
             throw new IllegalStateException("Transaction too old");
-        }
-
-        synchronized (this) {
-            // ეს რეალურად არაა საჭირო :) თავიდან მქონდა ეს ლისტი როცა ჯერ ვერ ჩამოვყალიბდი სოლუშენზე
-            savedTransactions.add(transactionData);
         }
 
         // ვააფდეითებთ სტატისტიკას ასინქრონულად. სინქრონულადაც შეიძლება, მაგრამ ვების ტრედს მოუწევდა დალოდებოდა სტატისტიკის განახლებას.
