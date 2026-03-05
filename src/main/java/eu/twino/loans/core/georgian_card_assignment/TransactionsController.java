@@ -49,7 +49,7 @@ public class TransactionsController {
                     var filtered = value
                             .stream()
                             .filter(st -> st.timestamp().isAfter(fiveMinsAgo))
-                            .collect(Collectors.toSet());
+                            .collect(Collectors.toCollection(HashSet::new));
                     merchantsStatistics.put(key, filtered);
                 });
             } finally {
