@@ -54,7 +54,7 @@ public class TransactionsController {
                 });
             } finally {
                 clearingInProgress.set(false);
-                statisticsCleared.signal();
+                statisticsCleared.signalAll();
                 lock.unlock();
             }
         }, 5, 5, TimeUnit.MINUTES);
