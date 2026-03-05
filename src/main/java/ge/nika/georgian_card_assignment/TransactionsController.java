@@ -1,4 +1,4 @@
-package eu.twino.loans.core.georgian_card_assignment;
+package ge.nika.georgian_card_assignment;
 
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;

@@ -1,4 +1,4 @@
-package eu.twino.loans.core.georgian_card_assignment;
+package ge.nika.georgian_card_assignment;
 
 import java.math.BigDecimal;
 import java.time.Instant;
